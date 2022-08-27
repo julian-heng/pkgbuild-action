@@ -26,6 +26,11 @@ chmod -R a+rw .
 BASEDIR="$PWD"
 cd "${INPUT_PKGDIR:-.}"
 
+# Generate .SRCINFO if missing
+if [ ! -e .SRCINFO ]; then
+    sudo -u builder makepkg --printsrcinfo > .SRCINFO
+fi
+
 # Assume that if .SRCINFO is missing then it is generated elsewhere.
 # AUR checks that .SRCINFO exists so a missing file can't go unnoticed.
 if [ -f .SRCINFO ] && ! sudo -u builder makepkg --printsrcinfo | diff - .SRCINFO; then
@@ -48,6 +53,11 @@ if [ -n "${INPUT_AURDEPS:-}" ]; then
 		<(sed -n -e 's/^[[:space:]]*\(make\)\?depends\(_x86_64\)\? = \([[:alnum:][:punct:]]*\)[[:space:]]*$/\3/p' .SRCINFO)
 	sudo -H -u builder yay --sync --noconfirm "${PKGDEPS[@]}"
 fi
+
+# Import keys
+mapfile -t validpgpkeys < \
+    <(sed -n -e 's/^[[:space:]]*validpgpkeys = \([[:alnum:][:punct:]]*\)[[:space:]]*$/\1/p' .SRCINFO)
+sudo -H -u builder gpg --recv-keys "${validpgpkeys[@]}"
 
 # Build packages
 # INPUT_MAKEPKGARGS is intentionally unquoted to allow arg splitting
